@@ -1,0 +1,71 @@
+name: Sync 2cmd cask
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: tap
+
+      - name: Read latest 2cmd release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          release=$(gh api repos/tonatoz/2cmd/releases/latest)
+          version=$(jq -r '.tag_name | ltrimstr("v")' <<<"$release")
+          sha256=$(jq -r '.assets[] | select(.name == "2cmd.dmg") | .digest | sub("^sha256:"; "")' <<<"$release")
+          test -n "$version"
+          test ${#sha256} -eq 64
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "sha256=$sha256" >> "$GITHUB_OUTPUT"
+          if grep -q "version \"$version\"" tap/Casks/2cmd.rb; then
+            echo "update=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "update=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v5
+        if: steps.release.outputs.update == 'true'
+        with:
+          repository: tonatoz/2cmd
+          ref: v${{ steps.release.outputs.version }}
+          path: source
+
+      - name: Generate cask
+        if: steps.release.outputs.update == 'true'
+        run: |
+          source/Tools/make-homebrew-cask.sh \
+            "${{ steps.release.outputs.version }}" \
+            "${{ steps.release.outputs.sha256 }}" \
+            > tap/Casks/2cmd.rb
+
+      - name: Commit cask
+        if: steps.release.outputs.update == 'true'
+        working-directory: tap
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/2cmd.rb
+          git commit -m "Update 2cmd to ${{ steps.release.outputs.version }}"
+
+      - name: Validate cask
+        if: steps.release.outputs.update == 'true'
+        run: |
+          brew tap tonatoz/tap "$GITHUB_WORKSPACE/tap"
+          brew style --cask tonatoz/tap/2cmd
+          brew audit --cask --online tonatoz/tap/2cmd
+
+      - name: Push cask
+        if: steps.release.outputs.update == 'true'
+        working-directory: tap
+        run: git push
