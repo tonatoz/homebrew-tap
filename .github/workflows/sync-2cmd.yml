@@ -8,6 +8,9 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: sync-2cmd-cask
+
 jobs:
   sync:
     runs-on: macos-15
@@ -28,7 +31,7 @@ jobs:
           test ${#sha256} -eq 64
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "sha256=$sha256" >> "$GITHUB_OUTPUT"
-          if grep -q "version \"$version\"" tap/Casks/2cmd.rb; then
+          if grep -Fq "version \"$version\"" tap/Casks/2cmd.rb; then
             echo "update=false" >> "$GITHUB_OUTPUT"
           else
             echo "update=true" >> "$GITHUB_OUTPUT"
