@@ -1,6 +1,6 @@
 cask "2cmd" do
-  version "2.0.0"
-  sha256 "d40bef7a69d85460b44a59e885716c7818e770395d72f862582829d6fa31e40f"
+  version "2.0.1"
+  sha256 "5c9672f16c035f5eebbcb9a5d609443914fc993cc3db2f368e882c88bbbc0972"
 
   url "https://github.com/tonatoz/2cmd/releases/download/v#{version}/2cmd.dmg"
   name "2cmd"
